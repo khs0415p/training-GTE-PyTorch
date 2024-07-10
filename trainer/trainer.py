@@ -69,8 +69,11 @@ class GTETrainer(BaseTrainer):
         Return:
             (Tensor loss): loss
         """
-        queries = self.model(**model_inputs['queries'])
-        documents = self.model(**model_inputs['documents'])
+        queries_output = self.model(**model_inputs['queries'])
+        documents_output = self.model(**model_inputs['documents'])
+        
+        queries = queries_output['last_hidden_state']
+        documents = documents_output['last_hidden_state']
         loss = self.icl_loss(queries, documents)
 
         return loss
