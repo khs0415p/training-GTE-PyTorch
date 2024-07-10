@@ -1,0 +1,32 @@
+seed: 42
+model_type: gte
+device: cuda
+
+load_hub: true # if this option is true, model_path should be huggingface hub.
+model_path:  # huggingface path
+tokenizer_path: 
+cache_dir: /data
+data_path: ../data/data.pk
+save_path: ../results/
+
+fp16: false
+fp16_opt_level: "01" # # mixed precision
+
+do_eval: true # validation
+
+max_length: 512 # max-length for tokenize
+scheduler_type: linear # linear or cosine
+warmup_ratio: 0.05
+weight_decay: 0.01 # optimizer weight decay
+use_exclude: false # excluding bias and norm from weight decay
+
+save_total_limit: 50
+epochs: 50
+batch_size: 64
+lr: 5e-5
+gradient_accumulation_steps: 1.0
+clip_max_norm: 1.0
+
+save_strategy: epoch # epoch or step
+save_step: 10 # if save_starategy is a step, the model saved at each save_step.
+log_step: 100 # step for terminal log
