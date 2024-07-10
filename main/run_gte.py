@@ -21,8 +21,6 @@ def main(args):
     config.checkpoint = args.checkpoint
     config.continuous = args.continuous
 
-    make_dir(config.save_path) # directory for checkpoint
-
     if config.device in ['cpu', 'cuda']:
         single_train(args, config)
     else:

@@ -43,8 +43,8 @@ class BaseTrainer:
         self.save_total_limit = self.config.save_total_limit
         self.saved_path = []
 
-        self.save_path = "{}/{}/{}-{}"
-        self.last_save_path = "{}/{}"
+        self.save_path = "results/{}/{}-{}"
+        self.last_save_path = "results/{}"
 
         self.phases = ['train', 'valid'] if config.do_eval else ['train']
 
@@ -306,8 +306,8 @@ class BaseTrainer:
         last_save: bool = False
     ):
         cur_time = time.strftime("%m-%d")
-        base_path = self.save_path.format(self.config.save_path, cur_time, step, self.config.save_strategy)
-        base_path = self.last_save_path.format(self.config.save_path, cur_time) if last_save else base_path
+        base_path = self.save_path.format(cur_time, step, self.config.save_strategy)
+        base_path = self.last_save_path.format(cur_time) if last_save else base_path
         make_dir(base_path)
 
         if last_save:
