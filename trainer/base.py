@@ -267,8 +267,8 @@ class BaseTrainer:
                             self.save_checkpoint(epoch_loss, epoch + 1)
                     
                     LOGGER.info(f"{colorstr('Epoch Loss'):<15}{epoch_loss}")
-            self.save_checkpoint(last_save=True)
-            LOGGER.info(f"{colorstr('Completed training.')}")
+        self.save_checkpoint(last_save=True)
+        LOGGER.info(f"{colorstr('Completed training.')}")
 
 
     def _save_checkpoint(
