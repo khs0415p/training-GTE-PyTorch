@@ -3,14 +3,18 @@ import torch.nn as nn
 
 from trainer import BaseTrainer
 from utils.train_utils import get_dataloader
-from utils import LOGGER, colorstr
+
+
 
 class GTETrainer(BaseTrainer):
-    def __init__(self, config) -> None:
-        super().__init__(config)
+    def __init__(self, config, device) -> None:
+        super().__init__(config, device)
 
         # dataloaders
         self.dataloader = get_dataloader(config) # {'train': dataloader, 'valid': dataloader}
+
+        # main process
+        self.rank_zero = True if not self.ddp or (self.ddp and device == 0) else False
 
         # initialize trainer
         self._init_trainer()

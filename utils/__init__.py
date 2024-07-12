@@ -40,6 +40,15 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
+def setup_env(config):
+    """
+    .env
+        MASTER_ADDR : master ip
+        MASTER_PORT : master port
+    """
+    os.environ['CUDA_DEVICE_ORDER'] = "PCI_BUS_ID"
+
+
 def colorstr(*input):
     *args, string = input if len(input) > 1 else ('blue', 'bold', input[0])
     colors = {

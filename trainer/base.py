@@ -25,10 +25,12 @@ from transformers import (
 class BaseTrainer:
     def __init__(
         self,
-        config
+        config,
+        device,
     ) -> None:
         self.config = config
-        self.device = torch.device(config.device)
+        self.device = torch.device(device)
+        self.ddp = config.ddp
 
         self.n_iter = 0
 
@@ -49,6 +51,9 @@ class BaseTrainer:
         self.phases = ['train', 'valid'] if config.do_eval else ['train']
 
         set_seed(config.seed)
+
+        self.world_size = len(self.config.device) if self.is_ddp else 1
+        self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
 
 
     def _init_trainer(self):
@@ -78,9 +83,13 @@ class BaseTrainer:
 
         self.model.to(self.device)
 
-        LOGGER.info(f"{colorstr('Initialize'):<25} {colorstr(self.__class__.__name__)}")
-        LOGGER.info(f"{colorstr('Batch Size'):<25} {colorstr(str(self.config.batch_size))}")
-        LOGGER.info(f"{colorstr('Learning Rate'):<25} {colorstr(str(self.config.lr))}")
+        if self.ddp:
+            self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.device % torch.cuda.device_count()])
+
+        if self.is_rank_zero:
+            LOGGER.info(f"{colorstr('Initialize'):<25} {colorstr(self.__class__.__name__)}")
+            LOGGER.info(f"{colorstr('Batch Size'):<25} {colorstr(str(self.config.batch_size))}")
+            LOGGER.info(f"{colorstr('Learning Rate'):<25} {colorstr(str(self.config.lr))}")
 
 
     def init_model(self):
@@ -229,21 +238,21 @@ class BaseTrainer:
                             batch_size = batch[batch_key].size(0)
 
                     step = (epoch * len(self.dataloader[phase])) + i
-                    if phase == "train":
+                    if phase == "train" and self.is_rank_zero:
                         self._save_learning_rate()
                         loss = self._training_step(model_inputs)
 
                         self._backward_step(loss)
 
                         if self.config.save_strategy == "step":
-                            if self.n_iter % self.config.save_step == 0:
+                            if self.n_iter % self.config.save_step == 0 and self.is_rank_zero:
                                 self.save_checkpoint(loss=loss, step=step)
                     else:
                         loss = self._validation_step(model_inputs)
 
                     loss = loss.item()
 
-                    if i % self.config.log_step == 0:
+                    if i % self.config.log_step == 0 and self.is_rank_zero:
                         LOGGER.info(f"{colorstr('Epoch'):<25}{colorstr(str(epoch + 1))}")
                         LOGGER.info(f"{colorstr('Step'):<25}{colorstr(str(step))}")
                         LOGGER.info(f"{colorstr('Phase'):<25}{colorstr(phase)}")
@@ -257,7 +266,7 @@ class BaseTrainer:
                     total_size += batch_size
                 epoch_loss = epoch_loss / total_size
 
-                if self.config.save_strategy == 'epoch':
+                if self.config.save_strategy == 'epoch' and self.is_rank_zero:
                     if self.config.do_eval:
                         if phase == 'valid':
                             self.save_checkpoint(epoch_loss, epoch + 1)
@@ -267,8 +276,9 @@ class BaseTrainer:
                             self.save_checkpoint(epoch_loss, epoch + 1)
                     
                     LOGGER.info(f"{colorstr('Epoch Loss'):<15}{epoch_loss}")
-        self.save_checkpoint(last_save=True)
-        LOGGER.info(f"{colorstr('Completed training.')}")
+        if self.is_rank_zero:
+            self.save_checkpoint(last_save=True)
+            LOGGER.info(f"{colorstr('Completed training.')}")
 
 
     def _save_checkpoint(

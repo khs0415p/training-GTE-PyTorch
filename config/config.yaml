@@ -1,6 +1,7 @@
 seed: 42
 model_type: gte
-device: cuda
+device: cuda # cpu, cuda, [0, 1] ...
+ddp: false # for multi-gpu training
 
 load_hub: true # if this option is true, model_path should be huggingface hub.
 model_path:  # huggingface path

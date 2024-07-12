@@ -6,7 +6,7 @@ from collections import OrderedDict
 from transformers import PreTrainedModel, AutoTokenizer
 from utils import LOGGER, TYPE_MODEL, colorstr, seed_worker
 from utils.data_utils import GTEDataset
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, distributed
 
 
 IGNORE_ID = -100
@@ -59,12 +59,15 @@ def get_model(config):
     return model, model_config
 
 
-def build_dataloader(dataset, batch_size, num_workers, shuffle):
+def build_dataloader(dataset, batch_size, num_workers, shuffle, ddp=False):
+    sampler = distributed.DistributedSampler(dataset, shuffle=shuffle) if not ddp else None
     return DataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=num_workers,
-            shuffle=shuffle,
+            sampler=sampler,
+            pin_memory=True,
+            shuffle=shuffle if sampler is None else False,
             collate_fn=collate_fn,
             worker_init_fn=seed_worker
             )
@@ -100,6 +103,6 @@ def get_dataloader(config):
 
     dict_dataset = get_dataset(config, modes)
 
-    dataloader = {mode: build_dataloader(dict_dataset[mode], config.batch_size, num_workers, mode == 'train') for mode in modes}
+    dataloader = {mode: build_dataloader(dict_dataset[mode], config.batch_size, num_workers, mode == 'train', config.ddp) for mode in modes}
 
     return dataloader

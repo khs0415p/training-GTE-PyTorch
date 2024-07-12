@@ -2,13 +2,15 @@ import os
 import sys
 from sconf import Config
 from argparse import ArgumentParser
+
+import torch.distributed
+import torch.multiprocessing.spawn
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
 from trainer import GTETrainer
-from utils.file_utils import make_dir
-
+from utils import setup_env
 
 
 def load_config(config_path):
@@ -21,22 +23,26 @@ def main(args):
     config.checkpoint = args.checkpoint
     config.continuous = args.continuous
 
-    if config.device in ['cpu', 'cuda']:
+    setup_env(config)
+
+    if len(config.device) <= 1 or config.device in ['cpu', 'cuda']:
         single_train(args, config)
     else:
-        # multi gpu
-        raise NotImplementedError
+        os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, config.device))
+        ngpus_per_node = len(config.device)
+        torch.multiprocessing.spawn(multi_train, nprocs=ngpus_per_node, args=(ngpus_per_node, config, args))
 
-    
+
 def single_train(args, config):
-    if config.device == 'cuda':
-        device = torch.device('cuda:0')
-    else:
+    if config.device == 'cpu':
         device = torch.device('cpu')
-    
-    config.device = device
+    else:
+        device = torch.device("cuda:0") if config.device == "cuda" else torch.device(f"cuda:{config.device[0]}")
 
-    trainer = GTETrainer(config)
+    trainer = GTETrainer(
+        config,
+        device,
+        )
 
     if args.mode == 'train':
         trainer.train()
@@ -44,8 +50,22 @@ def single_train(args, config):
         raise NotImplementedError
 
 
-def multi_train():
-    pass
+def multi_train(rank, ngpus_per_node, config, args):
+    
+    torch.distributed.init_process_group(backend='nccl', world_size=ngpus_per_node, rank=rank)
+
+    torch.cuda.set_device(rank)
+    torch.distributed.barrier()
+
+    trainer = GTETrainer(
+        config,
+        rank,
+    )
+
+    if args.mode == 'train':
+        trainer.train()
+    elif args.mode == 'test':
+        raise NotImplementedError
 
 
 if __name__ == '__main__':
@@ -57,3 +77,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
+
+
+# if __name__ == "__main__":
+#     main()
+    # python -m torch.distributed.launch --nproc_per_node=1 --nnodes=2 --node_rank=<0 or 1> --master_addr="master_node_ip" --master_port=12345 script.py
