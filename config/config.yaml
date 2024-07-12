@@ -4,7 +4,7 @@ device: cuda # cpu, cuda, [0, 1] ...
 ddp: false # for multi-gpu training
 
 load_hub: true # if this option is true, model_path should be huggingface hub.
-model_path:  # huggingface path
+model_path:   # huggingface path
 tokenizer_path: 
 cache_dir: /data
 data_path: data/data.pk
@@ -22,11 +22,12 @@ use_exclude: false # excluding bias and norm from weight decay
 
 save_total_limit: 50
 epochs: 50
-batch_size: 64
+batch_size: 32
 lr: 5e-5
-gradient_accumulation_steps: 1.0
+gradient_accumulation_steps: 2.0
 clip_max_norm: 1.0
 
 save_strategy: epoch # epoch or step
 save_step: 10 # if save_starategy is a step, the model saved at each save_step.
+best: false # if this option is true, compare loss and save model.
 log_step: 100 # step for terminal log

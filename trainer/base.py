@@ -52,8 +52,8 @@ class BaseTrainer:
 
         set_seed(config.seed)
 
-        self.world_size = len(self.config.device) if self.is_ddp else 1
-        self.is_rank_zero = True if not self.is_ddp or (self.is_ddp and device == 0) else False
+        self.world_size = len(self.config.device) if self.ddp else 1
+        self.is_rank_zero = True if not self.ddp or (self.ddp and device == 0) else False
 
 
     def _init_trainer(self):
@@ -313,7 +313,7 @@ class BaseTrainer:
         self,
         loss: float = float("inf"),
         step: int = 0,
-        last_save: bool = False
+        last_save: bool = False,
     ):
         cur_time = time.strftime("%m-%d")
         base_path = self.save_path.format(cur_time, step, self.config.save_strategy)
@@ -327,6 +327,13 @@ class BaseTrainer:
                 step,
             )
             return
+
+        elif not self.config.best:
+            if len(self.saved_path) >= self.save_total_limit:
+                remove_item = heapq.heappop(self.saved_path)
+                remove_file(remove_item[1])
+            self._save_checkpoint(base_path, loss, step)
+            heapq.heappush(self.saved_path, (-loss, base_path))
 
         elif self.best_val_loss > loss or loss == float("inf"):
             if len(self.saved_path) >= self.save_total_limit:
