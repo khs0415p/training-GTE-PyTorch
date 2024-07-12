@@ -60,7 +60,7 @@ def get_model(config):
 
 
 def build_dataloader(dataset, batch_size, num_workers, shuffle, ddp=False):
-    sampler = distributed.DistributedSampler(dataset, shuffle=shuffle) if not ddp else None
+    sampler = distributed.DistributedSampler(dataset, shuffle=shuffle) if ddp else None
     return DataLoader(
             dataset,
             batch_size=batch_size,
