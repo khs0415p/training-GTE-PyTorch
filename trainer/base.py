@@ -3,6 +3,7 @@ import time
 import torch
 import heapq
 import pickle
+import gc
 import torch.optim as optim
 
 from torch.nn.utils import clip_grad_norm_
@@ -83,6 +84,9 @@ class BaseTrainer:
 
         self.model.to(self.device)
 
+        torch.cuda.empty_cache()
+        gc.collect()
+
         if self.ddp:
             self.model = torch.nn.parallel.DistributedDataParallel(self.model, device_ids=[self.device % torch.cuda.device_count()])
 
@@ -97,7 +101,7 @@ class BaseTrainer:
             try:
                 model = AutoModel.from_pretrained(self.config.model_path, cache_dir=self.config.cache_dir, trust_remote_code=True)
             except:
-                raise ValueError(f"Can't load model from hub, Check your hub path ({self.config.model_ath})")
+                raise ValueError(f"Can't load model from hub, Check your hub path ({self.config.model_path})")
         else:
             model, model_config = TYPE_MODEL[self.config.model_type]
             model = model(model_config())
@@ -264,7 +268,11 @@ class BaseTrainer:
 
                     epoch_loss += loss * batch_size
                     total_size += batch_size
+
                 epoch_loss = epoch_loss / total_size
+
+                torch.cuda.empty_cache()
+                gc.collect()
 
                 if self.config.save_strategy == 'epoch' and self.is_rank_zero:
                     if self.config.do_eval:
