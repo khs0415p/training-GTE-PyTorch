@@ -21,9 +21,15 @@ class GTETrainer(BaseTrainer):
 
         # criterion
         self.cosine_similarity = nn.CosineSimilarity(dim=-1)
+        self.cross_entropy = nn.CrossEntropyLoss()
+    
+    def cal_similarity(self, x, y, temperature=0.05):
+        sim = self.cosine_similarity(x.unsqueeze(1), y.unsqueeze(0))
+        sim /= temperature
 
+        return sim
 
-    def icl_loss(self, queries, documents, temperature=0.05):
+    def icl_loss(self, queries, documents, temperature=0.01):
         if queries.dim() >= 3:
             # mean
             queries = queries.mean(dim=1)
@@ -31,6 +37,43 @@ class GTETrainer(BaseTrainer):
 
         batch_size = queries.size(0)
 
+        ### test
+        # sim_qd = self.cal_similarity(queries, documents)
+        # sim_dq = self.cal_similarity(documents, queries)
+
+        # mask = torch.eye(batch_size, device=queries.device).bool()
+
+        # sim_qq = self.cal_similarity(queries, queries)
+        # sim_qq = sim_qq.masked_fill(mask, float("-inf"))
+        # sim_dd = self.cal_similarity(documents, documents)
+        # sim_dd = sim_dd.masked_fill(mask, float("-inf"))
+
+
+        # labels = torch.arange(batch_size, device=queries.device)
+
+        # qd_loss = self.cross_entropy(sim_qd, labels)
+        # dq_loss = self.cross_entropy(sim_dq, labels)
+        # qq_loss = self.cross_entropy(sim_qq, labels)
+        # dd_loss = self.cross_entropy(sim_dd, labels)
+
+        # loss = (qd_loss + dq_loss + qq_loss + dd_loss) / 4.0
+        
+        ### origin
+        # sim_qd = self.cosine_similarity(queries.unsqueeze(1), documents.unsqueeze(0)) / temperature
+        # sim_qq = self.cosine_similarity(queries.unsqueeze(1), queries.unsqueeze(0)) / temperature
+        # sim_dq = self.cosine_similarity(documents.unsqueeze(1), queries.unsqueeze(0)) / temperature
+        # sim_dd = self.cosine_similarity(documents.unsqueeze(1), documents.unsqueeze(0)) / temperature
+
+        # mask = torch.eye(batch_size, device=queries.device).bool()
+
+        # z = torch.sum(torch.exp(sim_qd), dim=1) + \
+        #     torch.sum(torch.exp(sim_qq.masked_fill(mask, float('-inf'))), dim=1) + \
+        #     torch.sum(torch.exp(sim_dq), dim=1) + \
+        #     torch.sum(torch.exp(sim_dd.masked_fill(mask, float('-inf'))), dim=1)
+
+        # loss = -torch.mean(torch.log(torch.exp(torch.diag(sim_qd)) / z))
+
+        ### modify
         sim_qd = self.cosine_similarity(queries.unsqueeze(1), documents.unsqueeze(0)) / temperature
         sim_qq = self.cosine_similarity(queries.unsqueeze(1), queries.unsqueeze(0)) / temperature
         sim_dq = self.cosine_similarity(documents.unsqueeze(1), queries.unsqueeze(0)) / temperature
@@ -38,12 +81,17 @@ class GTETrainer(BaseTrainer):
 
         mask = torch.eye(batch_size, device=queries.device).bool()
 
-        z = torch.sum(torch.exp(sim_qd), dim=1) + \
-            torch.sum(torch.exp(sim_qq.masked_fill(mask, float('-inf'))), dim=1) + \
-            torch.sum(torch.exp(sim_dq), dim=1) + \
-            torch.sum(torch.exp(sim_dd.masked_fill(mask, float('-inf'))), dim=1)
+        sim_qq = sim_qq.masked_fill(mask, 0.)
+        sim_dd = sim_dd.masked_fill(mask, 0.)
+        
+        labels = torch.arange(batch_size, device=queries.device)
 
-        loss = -torch.mean(torch.log(torch.exp(torch.diag(sim_qd)) / z))
+        qd_loss = self.cross_entropy(sim_qd, labels)
+        dq_loss = self.cross_entropy(sim_dq, labels)
+        qq_loss = self.cross_entropy(sim_qq, labels)
+        dd_loss = self.cross_entropy(sim_dd, labels)
+
+        loss = (qd_loss + dq_loss + qq_loss + dd_loss)
 
         return loss
 
