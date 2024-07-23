@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from trainer import BaseTrainer
 from utils.train_utils import get_dataloader
@@ -81,17 +82,18 @@ class GTETrainer(BaseTrainer):
 
         mask = torch.eye(batch_size, device=queries.device).bool()
 
-        sim_qq = sim_qq.masked_fill(mask, 0.)
-        sim_dd = sim_dd.masked_fill(mask, 0.)
+        sim_qq = sim_qq.masked_fill(mask, float("-inf"))
+        sim_dd = sim_dd.masked_fill(mask, float("-inf"))
         
         labels = torch.arange(batch_size, device=queries.device)
 
         qd_loss = self.cross_entropy(sim_qd, labels)
         dq_loss = self.cross_entropy(sim_dq, labels)
-        qq_loss = self.cross_entropy(sim_qq, labels)
-        dd_loss = self.cross_entropy(sim_dd, labels)
 
-        loss = (qd_loss + dq_loss + qq_loss + dd_loss)
+        qq_loss = -F.log_softmax(sim_qq, dim=1).masked_select(~mask).mean()
+        dd_loss = -F.log_softmax(sim_dd, dim=1).masked_select(~mask).mean()
+
+        loss = (qd_loss + dq_loss + qq_loss + dd_loss) / 4.0
 
         return loss
 
