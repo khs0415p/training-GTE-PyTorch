@@ -112,7 +112,9 @@ class GTETrainer(BaseTrainer):
         documents = documents_output['last_hidden_state']
         loss = self.icl_loss(queries, documents)
 
-        return loss
+        self._backward_step(loss)
+
+        return loss.item()
 
 
     @torch.no_grad()
@@ -130,5 +132,5 @@ class GTETrainer(BaseTrainer):
         documents = documents_output['last_hidden_state']
         loss = self.icl_loss(queries, documents)
 
-        return loss
+        return loss.item()
 
