@@ -226,7 +226,6 @@ class BaseTrainer:
                 total_size = 0
                 for i, batch in enumerate(tqdm(self.dataloader[phase], total=len(self.dataloader[phase]), desc=f"{phase}|Epoch {epoch+1}")):
                     self.optimizer.zero_grad()
-
                     batch_size = -1
                     model_inputs = {}
                     for batch_key in batch.keys():
@@ -246,15 +245,11 @@ class BaseTrainer:
                         self._save_learning_rate()
                         loss = self._training_step(model_inputs)
 
-                        self._backward_step(loss)
-
                         if self.config.save_strategy == "step":
                             if self.n_iter % self.config.save_step == 0 and self.is_rank_zero:
                                 self.save_checkpoint(loss=loss, step=step)
-                    else:
+                    elif phase == "valid":
                         loss = self._validation_step(model_inputs)
-
-                    loss = loss.item()
 
                     if i % self.config.log_step == 0 and self.is_rank_zero:
                         LOGGER.info(f"{colorstr('Epoch'):<25}{colorstr(str(epoch + 1))}")
@@ -271,19 +266,14 @@ class BaseTrainer:
 
                 epoch_loss = epoch_loss / total_size
 
+                if phase == "train" and self.config.save_strategy == 'epoch' and self.is_rank_zero:
+                    self.save_checkpoint(epoch_loss, epoch + 1)
+
                 torch.cuda.empty_cache()
                 gc.collect()
 
-                if self.config.save_strategy == 'epoch' and self.is_rank_zero:
-                    if self.config.do_eval:
-                        if phase == 'valid':
-                            self.save_checkpoint(epoch_loss, epoch + 1)
+                LOGGER.info(f"{colorstr('Epoch Loss'):<15}{epoch_loss}")
 
-                    else:
-                        if phase == 'train':
-                            self.save_checkpoint(epoch_loss, epoch + 1)
-                    
-                    LOGGER.info(f"{colorstr('Epoch Loss'):<15}{epoch_loss}")
         if self.is_rank_zero:
             self.save_checkpoint(last_save=True)
             LOGGER.info(f"{colorstr('Completed training.')}")
