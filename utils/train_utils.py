@@ -28,29 +28,44 @@ def get_pretrained_weights(model: PreTrainedModel, pretrained_model: PreTrainedM
         layers.append((k, pretrained_layer))
         
     return OrderedDict(layers)
+def collate_fn_warpper(padding_id, model_type):
+    def collate_fn_inner(batch):
+        return collate_fn(batch, padding_id, model_type)
+    return collate_fn_inner
 
 
-def collate_fn(batch, padding_value: int = 0) -> Dict[str, torch.Tensor]:
+def collate_fn(batch: List[Dict[str, torch.Tensor]], padding_value: int = 0, model_type: str = '') -> Dict[str, torch.Tensor]:
     dataset_keys = ['queries', 'documents']
     outputs = {key: None for key in dataset_keys}
+
+    if model_type in ['roberta', 'distilbert']:
+        input_keys = ("input_ids",)
+    else:
+        input_keys = ("input_ids", "token_type_ids")
+
     for key in dataset_keys:
-        input_ids, token_type_ids = tuple([instance[key][item_key].view(-1) for instance in batch] for item_key in ("input_ids", "token_type_ids"))
+        temp = {item_key : [instance[key][item_key].squeeze() for instance in batch] for item_key in input_keys}
 
         # Dynamic padding
         input_ids = torch.nn.utils.rnn.pad_sequence(
-            input_ids, batch_first=True, padding_value=padding_value
+            temp["input_ids"], batch_first=True, padding_value=padding_value
             )
 
-        token_type_ids = torch.nn.utils.rnn.pad_sequence(
-            token_type_ids, batch_first=True, padding_value=padding_value
-            )
-
-        attention_mask = input_ids.ne(padding_value)
-        outputs[key] = {
+        attention_mask = input_ids.ne(padding_value).long()
+        
+        result = {
             "input_ids": input_ids,
-            "token_type_ids": token_type_ids,
             "attention_mask": attention_mask,
         }
+
+        if "token_type_ids" in temp:
+            token_type_ids = torch.nn.utils.rnn.pad_sequence(
+                temp['token_type_ids'], batch_first=True, padding_value=padding_value
+            )
+            result['token_type_ids'] = token_type_ids
+        
+        outputs[key] = result
+
     return outputs
 
 
@@ -59,7 +74,7 @@ def get_model(config):
     return model, model_config
 
 
-def build_dataloader(dataset, batch_size, num_workers, shuffle, ddp=False):
+def build_dataloader(dataset, batch_size, num_workers, shuffle, pad_token_id, model_type, ddp=False):
     sampler = distributed.DistributedSampler(dataset, shuffle=shuffle) if ddp else None
     return DataLoader(
             dataset,
@@ -68,7 +83,7 @@ def build_dataloader(dataset, batch_size, num_workers, shuffle, ddp=False):
             sampler=sampler,
             pin_memory=True,
             shuffle=shuffle if sampler is None else False,
-            collate_fn=collate_fn,
+            collate_fn=collate_fn_warpper(pad_token_id, model_type),
             worker_init_fn=seed_worker
             )
 
@@ -86,7 +101,7 @@ def get_dataset(config, modes):
         valid_size = len(dataset) - train_size
         dataset = random_split(dataset, [train_size, valid_size])
 
-    return {mode:ds for mode, ds in zip(modes, dataset)}
+    return {mode:ds for mode, ds in zip(modes, dataset)}, tokenizer
 
 
 def get_dataloader(config):
@@ -101,8 +116,8 @@ def get_dataloader(config):
     num_workers = min([4 * n_gpu, config.batch_size // n_gpu, config.batch_size // n_cpu])  # number of workers
     modes = ['train', 'valid'] if config.do_eval else ['train']
 
-    dict_dataset = get_dataset(config, modes)
+    dict_dataset, tokenizer = get_dataset(config, modes)
 
-    dataloader = {mode: build_dataloader(dict_dataset[mode], config.batch_size, num_workers, mode == 'train', config.ddp) for mode in modes}
+    dataloader = {mode: build_dataloader(dict_dataset[mode], config.batch_size, num_workers, mode == 'train', tokenizer.pad_token_id, config.model_type,config.ddp) for mode in modes}
 
     return dataloader
