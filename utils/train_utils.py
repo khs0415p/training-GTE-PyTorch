@@ -28,6 +28,8 @@ def get_pretrained_weights(model: PreTrainedModel, pretrained_model: PreTrainedM
         layers.append((k, pretrained_layer))
         
     return OrderedDict(layers)
+
+
 def collate_fn_warpper(padding_id, model_type):
     def collate_fn_inner(batch):
         return collate_fn(batch, padding_id, model_type)
