@@ -60,6 +60,7 @@ class BaseTrainer:
     def _init_trainer(self):
         # initialize model
         self.init_model()
+        self.model.to(self.device)
         # initialize optimizer
         self.init_optimizer(use_exclude=self.config.use_exclude)
         # initialize scheduler
@@ -81,8 +82,6 @@ class BaseTrainer:
                 self.train_loss_history = checkpoint_info['train_losses']
                 self.valid_loss_history = checkpoint_info['valid_losses']
                 self.start_epoch = checkpoint_info['epoch_or_step']
-
-        self.model.to(self.device)
 
         torch.cuda.empty_cache()
         gc.collect()
