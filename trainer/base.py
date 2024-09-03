@@ -259,8 +259,6 @@ class BaseTrainer:
                             self.train_loss_history.append([step, loss])
                         else:
                             self.valid_loss_history.append([step, loss])
-
-                    if (i + 1) % int(len(self.dataloader[phase]) * 0.01) == 0:
                         torch.cuda.empty_cache()
                         gc.collect()
 
