@@ -104,15 +104,16 @@ class BaseTrainer:
         else:
             model, model_config = TYPE_MODEL[self.config.model_type]
             model = model(model_config())
-            if self.config.continuous:
-                checkpoint_path = self.config.checkpoint
-                try:
-                    model_state = torch.load(os.path.join(checkpoint_path, 'pytorch_model.bin'), map_location=self.device)
-                    model = model.load_state_dict(model_state)
-                    del model_state
-                    torch.cuda.empty_cache()
-                except:
-                    raise ValueError(f"Not exists file : {checkpoint_path}/pytorch_model.bin")
+
+        if self.config.continuous:
+            checkpoint_path = self.config.checkpoint
+            try:
+                model_state = torch.load(os.path.join(checkpoint_path, 'pytorch_model.bin'), map_location=self.device)
+                model = model.load_state_dict(model_state)
+                del model_state
+                torch.cuda.empty_cache()
+            except:
+                raise ValueError(f"Not exists file : {checkpoint_path}/pytorch_model.bin")
 
         self.model = model
 
