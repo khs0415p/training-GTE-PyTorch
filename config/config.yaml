@@ -1,13 +1,14 @@
 seed: 42
-model_type: gte
+model_type: roberta
 device: cuda # cpu, cuda, [0, 1] ...
 ddp: false # for multi-gpu training
+use_hf_trainer: false
 
 load_hub: true # if this option is true, model_path should be huggingface hub.
-model_path:   # huggingface path
-tokenizer_path: 
+model_path: FacebookAI/roberta-large # huggingface path
+tokenizer_path: FacebookAI/roberta-large
 cache_dir: /data
-data_path: data/data.pk
+data_path: data/added_eng_data.pk
 
 fp16: false
 fp16_opt_level: "01" # # mixed precision
@@ -20,11 +21,11 @@ warmup_ratio: 0.05
 weight_decay: 0.01 # optimizer weight decay
 use_exclude: false # excluding bias and norm from weight decay
 
-save_total_limit: 50
-epochs: 50
-batch_size: 32
+save_total_limit: 10
+epochs: 10
+batch_size: 16
 lr: 5e-5
-gradient_accumulation_steps: 2.0
+gradient_accumulation_steps: 4.0
 clip_max_norm: 1.0
 
 save_strategy: epoch # epoch or step

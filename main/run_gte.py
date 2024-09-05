@@ -9,8 +9,9 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 import torch
 
-from trainer import GTETrainer
-from utils import setup_env
+from trainer import GTETrainer, HfTrainer
+from utils import setup_env, hf_setup
+from utils.train_utils import get_dataset
 
 
 def load_config(config_path):
@@ -39,10 +40,25 @@ def single_train(args, config):
     else:
         device = torch.device("cuda:0") if config.device == "cuda" else torch.device(f"cuda:{config.device[0]}")
 
-    trainer = GTETrainer(
-        config,
-        device,
+    if config.use_hf_trainer:
+        modes = ['train', 'valid'] if config.do_eval else ['train']
+        dict_dataset, tokenizer = get_dataset(config, modes)
+
+        model, training_args, data_collator = hf_setup(config, tokenizer)
+
+        trainer = HfTrainer(
+            model = model,
+            train_dataset=dict_dataset['train'],
+            eval_dataset=dict_dataset['valid']if 'valid' in dict_dataset else None,
+            args = training_args,
+            data_collator=data_collator,
         )
+
+    else:
+        trainer = GTETrainer(
+            config,
+            device,
+            )
 
     if args.mode == 'train':
         trainer.train()

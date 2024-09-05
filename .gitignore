@@ -182,3 +182,4 @@ tokenizer/
 
 # nohup
 *.out
+outputs/

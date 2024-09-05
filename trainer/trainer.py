@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from trainer import BaseTrainer
+from .base import BaseTrainer
 from utils.train_utils import get_dataloader
 
 

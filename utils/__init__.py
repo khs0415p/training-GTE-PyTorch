@@ -22,6 +22,9 @@ TYPE_MODEL = {
 }
 
 
+from .hf_utils import hf_setup
+
+
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
