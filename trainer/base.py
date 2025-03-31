@@ -37,6 +37,7 @@ class BaseTrainer:
 
         self.start_epoch = 0
         self.epochs = config.epochs
+        self.gradient_accumulation_steps = config.gradient_accumulation_steps
 
         self.train_loss_history = []
         self.valid_loss_history = []
@@ -196,6 +197,8 @@ class BaseTrainer:
 
 
     def _backward_step(self, loss):
+        # Loss Scaling
+        loss = loss / self.gradient_accumulation_steps
         if self.config.fp16:
             from apex import amp
             with amp.scale_loss(loss, self.optimizer) as scaled_loss:
@@ -203,7 +206,7 @@ class BaseTrainer:
         else:
             loss.backward()
 
-        if self.n_iter % self.config.gradient_accumulation_steps == 0:
+        if self.n_iter % self.gradient_accumulation_steps == 0:
             if self.config.fp16:
                 clip_grad_norm_(amp.master_params(self.optimizer), self.config.clip_max_norm)
             else:
